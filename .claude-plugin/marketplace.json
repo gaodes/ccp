@@ -13,7 +13,7 @@
       "name": "ccmem",
       "version": "1.1.0",
       "description": "Claude Code Memory System - File-based learning and memory management",
-      "source": ".plugins/ccmem",
+      "source": "./plugins/ccmem",
       "category": "memory",
       "keywords": [
         "memory",
