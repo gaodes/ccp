@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.elche.memory-maintenance</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>$HOME/.claude/plugins/ccmem/scripts/maintenance.sh run &gt;&gt; $HOME/.claude/memory/logs/maintenance.log 2&gt;&amp;1</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>86400</integer>
+    <key>StandardOutPath</key>
+    <string>$HOME/.claude/memory/logs/maintenance.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/.claude/memory/logs/maintenance-error.log</string>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,227 @@
+#!/bin/bash
+#
+# Memory CLI Wrapper
+#
+# Extended wrapper around ccmem with additional automation commands.
+#
+
+MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/.claude/memory}"
+CCMEM_BIN="${CLAUDE_PLUGIN_DIR:-$HOME/.claude/plugins/ccmem}/bin/ccmem"
+PLIST_NAME="com.elche.memory-maintenance"
+PLIST_PATH="${HOME}/Library/LaunchAgents/${PLIST_NAME}.plist"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+show_help() {
+    cat << 'EOF'
+Memory System CLI
+
+DEPRECATED: Use 'ccmem' command instead. This wrapper is provided for
+backward compatibility and may be removed in a future version.
+
+Usage: memory <command> [options]
+
+Core Commands:
+  search <query>        Search memories by query
+  list                  List all memories
+  show <id>             Show memory details
+  reinforce <id>        Positive feedback on memory
+  correct <id>          Negative feedback on memory
+  stats                 Show system statistics
+  create                Create new memory (interactive)
+  export [file]         Export memories to JSON
+  import <file>         Import memories from JSON
+
+Analysis Commands:
+  analyze               Run pattern analysis on observations
+  index                 Build search index
+  sync                  Sync with CLAUDE.md
+
+Automation Commands:
+  maintenance           Run maintenance manually
+  automation status     Check automation status
+  automation unload     Unload launch agent
+  automation load       Load launch agent
+
+Examples:
+  memory search "package manager"
+  memory list --confidence 0.8
+  memory maintenance
+  memory automation status
+
+EOF
+}
+
+# Check if ccmem exists for core commands
+ensure_ccmem() {
+    if [[ ! -x "$CCMEM_BIN" ]]; then
+        echo -e "${RED}Error:${NC} ccmem not found at ${CCMEM_BIN}" >&2
+        exit 1
+    fi
+}
+
+# Run maintenance manually
+cmd_maintenance() {
+    echo -e "${BLUE}Running maintenance...${NC}"
+    if [[ -f "${MEMORY_DIR}/scripts/maintenance.sh" ]]; then
+        "${MEMORY_DIR}/scripts/maintenance.sh" run
+    else
+        echo -e "${RED}Error:${NC} maintenance.sh not found" >&2
+        exit 1
+    fi
+}
+
+# Check automation status
+cmd_automation_status() {
+    echo -e "${BLUE}Automation Status${NC}"
+    echo "=================="
+
+    # Check if plist is loaded
+    local status
+    status=$(launchctl list | grep "${PLIST_NAME}" || echo "")
+
+    if [[ -n "$status" ]]; then
+        echo -e "${GREEN}● Loaded${NC}"
+        echo "  Label: ${PLIST_NAME}"
+        echo "  Schedule: Every 24 hours"
+        echo "  Logs: ~/.claude/memory/logs/"
+    else
+        echo -e "${YELLOW}○ Not loaded${NC}"
+        echo "  Run 'memory automation load' to activate"
+    fi
+
+    # Show last maintenance
+    if [[ -f "${MEMORY_DIR}/config.json" ]]; then
+        local last_maintenance
+        last_maintenance=$(python3 -c "
+import json
+import sys
+try:
+    with open('${MEMORY_DIR}/config.json') as f:
+        config = json.load(f)
+    print(config.get('last_maintenance', 'Never'))
+except:
+    print('Unknown')
+" 2>/dev/null)
+        echo ""
+        echo "Last maintenance: ${last_maintenance}"
+    fi
+
+    # Check log files
+    if [[ -f "${MEMORY_DIR}/logs/maintenance.log" ]]; then
+        local log_lines
+        log_lines=$(wc -l < "${MEMORY_DIR}/logs/maintenance.log" | tr -d ' ')
+        echo "Maintenance log: ${log_lines} lines"
+    fi
+}
+
+# Unload automation
+cmd_automation_unload() {
+    echo -e "${BLUE}Unloading automation...${NC}"
+
+    if launchctl list | grep -q "${PLIST_NAME}"; then
+        launchctl unload "${PLIST_PATH}" 2>/dev/null
+        echo -e "${GREEN}✓ Automation unloaded${NC}"
+    else
+        echo -e "${YELLOW}Automation was not loaded${NC}"
+    fi
+
+    # Update config
+    python3 << EOF 2>/dev/null
+import json
+import sys
+try:
+    with open('${MEMORY_DIR}/config.json') as f:
+        config = json.load(f)
+    if 'automation' in config:
+        config['automation']['enabled'] = False
+        with open('${MEMORY_DIR}/config.json', 'w') as f:
+            json.dump(config, f, indent=2)
+except:
+    pass
+EOF
+}
+
+# Load automation
+cmd_automation_load() {
+    echo -e "${BLUE}Loading automation...${NC}"
+
+    if [[ ! -f "${PLIST_PATH}" ]]; then
+        if [[ -f "${MEMORY_DIR}/com.elche.memory-maintenance.plist" ]]; then
+            cp "${MEMORY_DIR}/com.elche.memory-maintenance.plist" "${PLIST_PATH}"
+            echo "Copied plist to LaunchAgents"
+        else
+            echo -e "${RED}Error:${NC} plist file not found" >&2
+            exit 1
+        fi
+    fi
+
+    launchctl load "${PLIST_PATH}" 2>/dev/null
+
+    if launchctl list | grep -q "${PLIST_NAME}"; then
+        echo -e "${GREEN}✓ Automation loaded${NC}"
+        echo "  Runs every 24 hours"
+
+        # Update config
+        python3 << EOF 2>/dev/null
+import json
+from datetime import datetime, timezone
+try:
+    with open('${MEMORY_DIR}/config.json') as f:
+        config = json.load(f)
+    config['automation'] = {
+        "enabled": True,
+        "type": "launchd",
+        "schedule": "daily",
+        "activated_at": datetime.now(timezone.utc).isoformat()
+    }
+    with open('${MEMORY_DIR}/config.json', 'w') as f:
+        json.dump(config, f, indent=2)
+except Exception as e:
+    pass
+EOF
+    else
+        echo -e "${RED}✗ Failed to load automation${NC}" >&2
+        exit 1
+    fi
+}
+
+# Main command dispatcher
+case "${1:-}" in
+    maintenance)
+        cmd_maintenance
+        ;;
+    automation)
+        case "${2:-status}" in
+            status)
+                cmd_automation_status
+                ;;
+            unload|stop|disable)
+                cmd_automation_unload
+                ;;
+            load|start|enable)
+                cmd_automation_load
+                ;;
+            *)
+                echo "Usage: memory automation [status|load|unload]"
+                exit 1
+                ;;
+        esac
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    "")
+        show_help
+        ;;
+    *)
+        # Pass through to ccmem for all other commands
+        ensure_ccmem
+        exec "$CCMEM_BIN" "$@"
+        ;;
+esac
