@@ -1,0 +1,27 @@
+{
+  "name": "El Che's Claude Code Marketplace",
+  "owner": {
+    "name": "El Che",
+    "email": "elche@elches.dev"
+  },
+  "meta": {
+    "description": "El Che's Claude Code Marketplace - A collection of plugins for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "ccmem",
+      "version": "1.1.0",
+      "description": "Claude Code Memory System - File-based learning and memory management",
+      "source": "./ccmem",
+      "category": "memory",
+      "keywords": [
+        "memory",
+        "learning",
+        "preferences",
+        "patterns",
+        "claude-code"
+      ]
+    }
+  ]
+}
