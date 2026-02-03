@@ -1,11 +1,11 @@
 {
-  "name": "El Che's Claude Code Marketplace",
+  "name": "cc-ecosystem",
   "owner": {
     "name": "El Che",
     "email": "elche@elches.dev"
   },
   "meta": {
-    "description": "El Che's Claude Code Marketplace - A collection of plugins for Claude Code",
+    "description": "El Che's Claude Code Ecosystem - A collection of plugins, skills and tools for Claude Code",
     "version": "1.0.0"
   },
   "plugins": [
